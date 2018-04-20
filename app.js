@@ -14,6 +14,7 @@ var signupRouter = require("./routes/signupRouter");
 var loginRouter = require("./routes/loginRouter");
 var aboutRouter = require("./routes/about");
 var recover = require("./routes/recover");
+var dashboardRouter = require("./routes/dashboard")
 
 var app = express();
 // view engine setup
@@ -47,6 +48,7 @@ app.use("/recover", recover);
 app.use("/about", aboutRouter);
 //Protected Routes
 app.use("/user", usersRouter);
+app.use("/dashboard", dashboardRouter);
 
 // catch 404 and forward to error handler
 app.use(function(req, res, next) {
