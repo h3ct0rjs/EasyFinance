@@ -65,7 +65,7 @@ passport.use(
     console.log(password);
     const db = require("./db");
     db.query(
-      "SELECT password from user where email_address = ?",
+      "SELECT * from user where email_address = ?",
       [emailaddr],
       function(err, results, fields) {
         //there was a problem with the query
@@ -83,13 +83,15 @@ passport.use(
 
         //console.log(results);
         const hash = results[0].password.toString();
+        const user_id = results[0].id_user;
         //check if the user provided is the same, we're asuming that the email address is in the database
-        console.log(results[0].id_user);
+        console.log(results);
+        console.log(`User id is ${user_id}`);
         console.log(hash);
         bcrypt.compare(password, hash, function(err, response) {
           if (response === true) {
             console.log("Okay");
-            return done(null, { user_id: results[0].id_user });
+            return done(null, true);
           } else {
             return done(null, false);
           }

@@ -25,19 +25,6 @@ www.easyfinancer.co/users/
                                    analytics
 */
 
-router.get("/login", function(req, res, next) {
-    res.render("./users/login", { title: "Login" });
-});
-
-router.post(
-    "/login",
-    passport.authenticate("local", {
-        successRedirect: "/users/dashboard",
-        failureRedirect: "/users/login",
-        session: false
-    })
-);
-
 //Register and Signup User
 //GET
 router.get("/register", function(req, res, next) {
@@ -168,8 +155,9 @@ router.post("/register", function(req, res, next) {
                         "SELECT * from user where email_address = ?",
                         [email_address],
                         function(error, results, fields) {
-                            console.log(results[0]);
-                            console.log("------------");
+                            console.log(
+                                "------------ AFTER CREATION------------ "
+                            );
                             //0428, 956 clase A
                             //If there is a problem retrieving the last id created in db
                             if (error) throw error;
@@ -177,33 +165,34 @@ router.post("/register", function(req, res, next) {
                             console.log(
                                 `Id de usuario despues de obtener la getid de la db : ${user_id}`
                             );
-
-                            res.render("./users/ok_create", {
-                                status: "Singup Complete"
-                            }); //Changed for the view of registration complete
+                            console.log(results);
+                            req.login(user_id, function(err) {
+                                res.render("./users/ok_create", {
+                                    status: "Singup Complete"
+                                }); //Changed for   the view of registration complete
+                            });
                         }
                     );
                 }
             ); //end of  Insert Into
         }); //end of bcryptjs
     }
-
-    // Configure Passport authenticated session persistence.
-    //
-    // In order to restore authentication state across HTTP requests, Passport needs
-    // to serialize users into and deserialize users out of the session.  The
-    // typical implementation of this is as simple as supplying the user ID when
-    // serializing, and querying the user record by ID from the database when
-    // deserializing.
-    passport.serializeUser(function(user_id, done) {
-        done(null, user_id);
-    });
-
-    passport.deserializeUser(function(user_id, done) {
-        done(null, user_id);
-    });
 });
 
+// Configure Passport authenticated session persistence.
+//
+// In order to restore authentication state across HTTP requests, Passport needs
+// to serialize users into and deserialize users out of the session.  The
+// typical implementation of this is as simple as supplying the user ID when
+// serializing, and querying the user record by ID from the database when
+// deserializing.
+passport.serializeUser(function(user_id, done) {
+    done(null, user_id);
+});
+
+passport.deserializeUser(function(user_id, done) {
+    done(err, user_id);
+});
 //Recovery
 router.get("/password_recovery", function(req, res, next) {
     console.log("[*****] Password Recovery");
@@ -226,7 +215,7 @@ router.get("/ok_create", function(req, res, next) {
     });
 });
 
-router.get("/dashboard", authMiddleware(), function(req, res, next) {
+router.get("/dashboard", function(req, res, next) {
     console.log("[*****] Authentication Dashboard");
     console.log(req.user);
     console.log(req.isAuthenticated());
@@ -248,17 +237,35 @@ router.get("/test", function(req, res, next) {
 //restrict access
 function authMiddleware() {
     return (req, res, next) => {
+        console.log("--------Auth MiddleWare-----");
+        console.log(req.isAuthenticated());
         console.log(
             `req.session.passport.user: ${JSON.stringify(req.session.passport)}`
         );
 
-        if (req.isAuthenticated()) return next();
-        console.log(
-            "Youre not authenticated, you're being redirected to the login page"
-        );
-        res.redirect("/users/login");
+        if (req.isAuthenticated()) {
+            return next();
+        } else {
+            console.log(
+                "Youre not authenticated, you're being redirected to the login page"
+            );
+            res.redirect("/users/login");
+        }
     };
 }
+
+router.get("/login", function(req, res, next) {
+    res.render("./users/login", { title: "Login" });
+});
+
+router.post(
+    "/login",
+    passport.authenticate("local", {
+        successRedirect: "/users/dashboard",
+        failureRedirect: "/users/login",
+        session: false
+    })
+);
 
 //Interception of ghost urls adaptable to american standard
 router.get("/signup", function(req, res, next) {
