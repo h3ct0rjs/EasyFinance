@@ -15,25 +15,26 @@
 							 investments/				[get, post]
 							 budgets/					[get, post]
 							 cryptomoney/				[get, post]
-	*/
-
-// app/routes.js
+*/
 const mysql = require("mysql");
-var dbconfig = require("../config/database");
-var connection = mysql.createConnection(dbconfig.connection);
+const crypto = require("crypto");
+const async = require("async");
+const nodemailer = require("nodemailer");
+
+const dbconfig = require("../config/database");
+const connection = mysql.createConnection(dbconfig.connection);
 connection.query("USE " + dbconfig.database);
 //connection.query("USE " + dbconfig.database);
-
 module.exports = function(app, passport) {
 	// =====================================
-	// HOME PAGE
+	// SECTION:HOME PAGE, LANDING
 	// =====================================
 	app.get("/", function(req, res) {
 		res.render("index"); // load the index.ejs file
 	});
 
 	// =====================================
-	// LOGIN
+	// SECTION:LOGIN
 	// =====================================
 	app.get("/users/login", function(req, res) {
 		// render the page and pass in any flash data if it exists
@@ -48,21 +49,11 @@ module.exports = function(app, passport) {
 			successRedirect: "/users/dashboard", // redirect to the secure profile section
 			failureRedirect: "/users/login", // redirect back to the signup page if there is an error
 			failureFlash: true // allow flash messages
-		}),
-		function(req, res) {
-			console.log("hello");
-
-			if (req.body.remember) {
-				req.session.cookie.maxAge = 1000 * 60 * 3;
-			} else {
-				req.session.cookie.expires = false;
-			}
-			res.redirect("/");
-		}
+		})
 	);
 
 	// =====================================
-	// SIGNUP
+	// SECTION:SIGNUP
 	// =====================================
 	app.get("/users/signup", function(req, res) {
 		// render the page and pass in any flash data if it exists
@@ -82,16 +73,7 @@ module.exports = function(app, passport) {
 	);
 
 	// =====================================
-	// PROFILE SECTION
-	// =====================================
-	app.get("/users/profile", isLoggedIn, function(req, res) {
-		res.render("./user/profile", {
-			user: req.user // get the user out of session and pass to template
-		});
-	});
-
-	// =====================================
-	// DASHBOARD SECTION
+	// SECTION:DASHBOARD SECTION
 	// =====================================
 	app.get("/users/dashboard", isLoggedIn, function(req, res) {
 		//carga parcial de datos de usuario balances, foto de perfil....etc
@@ -101,7 +83,6 @@ module.exports = function(app, passport) {
 		});
 	});
 
-	//Show all routes
 	app.get("/users/dashboard/account", isLoggedIn, function(req, res) {
 		res.render("./user/dashboard/", {
 			//add more logic here!
@@ -120,18 +101,18 @@ module.exports = function(app, passport) {
 	app.post("/users/dashboard/add_account", isLoggedIn, function(req, res) {
 		//req ! ademas insert into las bases datos
 		//console.log(req);
-		data = {
+		var data = {
 			account_number: req.body.account_number,
 			date: req.body.dateaccount
 		};
+
 		if (req.body.selectpicker === "Savings") data.account_type = "saving";
-		if (req.body.selectpicker === "Credit") data.account_type = "credit";
-		if (req.body.selectpicker === "Current") data.account_type = "current";
-		if (req.body.selectbank === "Banco1") data.bank = 1;
-		console.log(data);
-		console.log(req.user);
+		else if (req.body.selectpicker === "Credit")
+			data.account_type = "credit";
+		else data.account_type = "current";
+		data.bank = req.body.selectbank; //Valor del id del banco
 		var insertQuery =
-			"INSERT INTO account (id_bank, id, id_currency, number_acc, state_acc, type_acc) VALUES (?,?,?,?,?,?)";
+			"INSERT INTO account (id_bank, id, id_currency, number_acc, state_acc, type_acc, dateExp_acc) VALUES (?,?,?,?,?,?,?)";
 		connection.query(
 			insertQuery,
 			[
@@ -140,7 +121,8 @@ module.exports = function(app, passport) {
 				1,
 				data.account_number,
 				true,
-				data.account_type
+				data.account_type,
+				data.date
 			],
 			function(err, rows) {
 				if (err) {
@@ -159,17 +141,55 @@ module.exports = function(app, passport) {
 	});
 
 	app.get("/users/dashboard/accounts/credit", isLoggedIn, function(req, res) {
-		console.log(req.user);
+		//obtenemos datos asociados al usuario, solo cuentas de credito.
+		//bank.id_bank:int, user.id : int, account
+		data = {};
+		var selectQuery =
+			"SELECT name_bank, number_acc FROM account, bank, user WHERE account.id=? AND account.id_bank=bank.id_bank AND user.id=account.id AND account.type_acc=?;";
+		connection.query(selectQuery, [req.user.id, "credit"], function(
+			err,
+			rows
+		) {
+			if (err) {
+				console.log("Wrong Query in Credit Database");
+				throw err;
+			}
+			data.id = rows;
+			//console.log(rows);
+
+			res.render("./user/dashboard/credit", {
+				//add more logic here!
+				user: req.user, // get the user out of session and pass to template
+				title: "Credit Accounts"
+			});
+		});
 	});
 
 	app.get("/users/dashboard/accounts/current", isLoggedIn, function(
 		req,
 		res
 	) {
-		res.render("./user/dashboard/credit", {
-			//add more logic here!
-			user: req.user, // get the user out of session and pass to template
-			title: "Add an Account"
+		//obtenemos datos asociados al usuario, solo cuentas de credito.
+		//bank.id_bank:int, user.id : int, account
+		data = {};
+		var selectQuery =
+			"SELECT name_bank, number_acc FROM account, bank, user WHERE account.id=? AND account.id_bank=bank.id_bank AND user.id=account.id AND account.type_acc=?;";
+		connection.query(selectQuery, [req.user.id, "current"], function(
+			err,
+			rows
+		) {
+			if (err) {
+				console.log("Wrong Query in Saving Database");
+				throw err;
+			}
+			data.id = rows;
+			//console.log(rows);
+
+			res.render("./user/dashboard/credit", {
+				//add more logic here!
+				user: req.user, // get the user out of session and pass to template
+				title: "Credit Accounts"
+			});
 		});
 	});
 
@@ -177,16 +197,157 @@ module.exports = function(app, passport) {
 		req,
 		res
 	) {
-		res.render("./user/dashboard/credit", {
-			//select name_bank,number_acc,type_acc from account,user,bank where user.id = 2 and bank.id_bank = 1;
-			//add more logic here!
-			user: req.user, // get the user out of session and pass to template
-			title: "Add an Account"
+		//obtenemos datos asociados al usuario, solo cuentas de credito.
+		//bank.id_bank:int, user.id : int, account
+		data = {};
+		var selectQuery =
+			"SELECT name_bank, number_acc FROM account, bank, user WHERE account.id=? AND account.id_bank=bank.id_bank AND user.id=account.id AND account.type_acc=?;";
+		connection.query(selectQuery, [req.user.id, "saving"], function(
+			err,
+			rows
+		) {
+			if (err) {
+				console.log("Wrong Query in Saving Database");
+				throw err;
+			}
+			data.id = rows;
+			//console.log(rows);
+			res.render("./user/dashboard/credit", {
+				//add more logic here!
+				user: req.user, // get the user out of session and pass to template
+				title: "Credit Accounts"
+			});
+		});
+	});
+
+	app.get("/users/dashboard/accounts/current", isLoggedIn, function(
+		req,
+		res
+	) {
+		//obtenemos datos asociados al usuario, solo cuentas de credito.
+		//bank.id_bank:int, user.id : int, account
+		data = {};
+		var selectQuery =
+			"SELECT name_bank, number_acc FROM account, bank, user WHERE user.id=? AND user.id=account.id AND account.type_acc=?;";
+		connection.query(selectQuery, [req.user.id, "saving"], function(
+			err,
+			rows
+		) {
+			if (err) {
+				console.log("Wrong Query in Current Database");
+				throw err;
+			}
+			data.id = rows;
+			//console.log(rows);
+			res.render("./user/dashboard/credit", {
+				//add more logic here!
+				user: req.user, // get the user out of session and pass to template
+				title: "Current Accounts"
+			});
 		});
 	});
 
 	// =====================================
-	// LOGOUT
+	// SECTION:PROFILE
+	// =====================================
+	app.get("/users/password_recovery", function(req, res) {
+		res.render("./user/recover_password", {
+			//add more logic here!
+			user: req.user, // get the user out of session and pass to template
+			title: "Password"
+		});
+	});
+
+	app.post("/users/password_recovery", function(req, res) {
+		res.json("Okay, route implemented");
+	});
+
+	app.post("/users/forgot", function(req, res, next) {
+		console.log("Solicitud recibida de: " + req.body.email);
+		async.waterfall(
+			[
+				function(done) {
+					crypto.randomBytes(20, function(err, buf) {
+						var token = buf.toString("hex");
+						console.log(`Token Created: ${token}`);
+						done(err, token);
+					});
+				},
+				/*function(token, done) {
+					console.log("Using the token for search");
+					emailQuery = "select * from user where username=?";
+					connection.query(emailQuery, ["potter@magic.co"], function(
+						err,
+						rows
+					) {
+						if (err) {
+							console.log(
+								"thereis no user with that Email address"
+							);
+							throw err;
+						}
+						data = rows[0];
+						console.log(`Database Okay ${data}`);
+					});
+				},
+				function(token, user, done) {*/
+				function(token, done) {
+					var smtpTransport = nodemailer.createTransport(
+						"smtps://easyfinance.co@gmail.com3:" +
+							encodeURIComponent("karminakoala2018") +
+							"@smtp.gmail.com:465"
+					);
+					var mailOptions = {
+						to: "hfjimenez@utp.edu.co",
+						from: "EasyFinance.co <easyfinance.co@gmail.com>",
+						subject: "Node.js Password Reset",
+						text:
+							"You are receiving this because you (or someone else) have requested the reset of the password for your account.\n\n" +
+							"Please click on the following link, or paste this into your browser to complete the process:\n\n" +
+							"http://" +
+							req.headers.host +
+							"/reset/" +
+							token +
+							"\n\n" +
+							"If you did not request this, please ignore this email and your password will remain unchanged.\n"
+					};
+					smtpTransport.sendMail(mailOptions, function(err) {
+						req.flash(
+							"info",
+							"An e-mail has been sent to " +
+								"hfjimenez@utp.edu.co" +
+								" with further instructions."
+						);
+						done(err, "done");
+					});
+				}
+			],
+			function(err) {
+				if (err) return next(err);
+				res.redirect("/users/forgot");
+			}
+		);
+	});
+
+	// =====================================
+	// SECTION:PROFILE
+	// =====================================
+	app.get("/users/profile", isLoggedIn, function(req, res) {
+		res.render("./user/profile", {
+			user: req.user // get the user out of session and pass to template
+		});
+	});
+	// =====================================
+	// SECTION:TERMS
+	// =====================================
+	app.get("/users/profile", isLoggedIn, function(req, res) {
+		res.render("./user/profile", {
+			user: req.user // get the user out of session and pass to template
+		});
+	});
+
+	// =====================================
+	// SECTION:LOGOUT
 	// =====================================
 	app.get("/users/logout", function(req, res) {
 		req.logout();
