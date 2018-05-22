@@ -16,7 +16,7 @@ require("./config/passport")(passport); // pass passport for configuration
 app.use(
     morgan("dev", {
         skip: function(req, res) {
-            return res.method == "GET";
+            return res.method == "GET ";
         }
     })
 ); // log every request to the console
