@@ -1,5 +1,4 @@
 // server.js
-
 // set up ======================================================================
 // get all the tools we need
 const express = require("express");
@@ -12,14 +11,15 @@ const app = express();
 const port = process.env.PORT || 3000;
 const passport = require("passport");
 const flash = require("connect-flash");
-
-// configuration ===============================================================
-// connect to our database
-
 require("./config/passport")(passport); // pass passport for configuration
-
 // set up our express application
-app.use(morgan("dev")); // log every request to the console
+app.use(
+    morgan("dev", {
+        skip: function(req, res) {
+            return res.method == "GET ";
+        }
+    })
+); // log every request to the console
 app.use(cookieParser()); // read cookies (needed for auth)
 app.use(
     bodyParser.urlencoded({
