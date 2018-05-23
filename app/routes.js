@@ -91,7 +91,7 @@ module.exports = function(app, passport) {
 	});
 
 	app.get("/users/dashboard/add_account", isLoggedIn, function(req, res) {
-		res.render("./user/dashboard/addaccount", {
+		res.render("./user/dashboard/addbank", {
 			//add more logic here!
 			user: req.user, // get the user out of session and pass to template
 			title: "Add an Account"
@@ -131,7 +131,7 @@ module.exports = function(app, passport) {
 				}
 
 				data.id = rows.insertId;
-				res.render("./user/dashboard/addaccount", {
+				res.render("./user/dashboard/addbank", {
 					//add more logic here!
 					user: req.user, // get the user out of session and pass to template
 					title: "Done,Account Added!"
@@ -258,11 +258,7 @@ module.exports = function(app, passport) {
 		});
 	});
 
-	app.post("/users/password_recovery", function(req, res) {
-		res.json("Okay, route implemented");
-	});
-
-	app.post("/users/forgot", function(req, res, next) {
+	app.post("/users/password_recovery", function(req, res, next) {
 		console.log("Solicitud recibida de: " + req.body.email);
 		async.waterfall(
 			[
@@ -273,35 +269,41 @@ module.exports = function(app, passport) {
 						done(err, token);
 					});
 				},
-				/*function(token, done) {
+				function(token, done, callback) {
 					console.log("Using the token for search");
 					emailQuery = "select * from user where username=?";
-					connection.query(emailQuery, ["potter@magic.co"], function(
-						err,
-						rows
-					) {
-						if (err) {
-							console.log(
-								"thereis no user with that Email address"
-							);
-							throw err;
+					var value;
+					value = 0;
+					return connection.query(
+						emailQuery,
+						["potter@magic.co"],
+						function(err, rows, fields) {
+							if (err) {
+								console.log(
+									"thereis no user with that Email address"
+								);
+								throw err;
+							}
+							console.log("Value" + rows[0]);
 						}
-						data = rows[0];
-						console.log(`Database Okay ${data}`);
-					});
-				},
-				function(token, user, done) {*/
-				function(token, done) {
-					var smtpTransport = nodemailer.createTransport(
-						"smtps://easyfinance.co@gmail.com3:" +
-							encodeURIComponent("karminakoala2018") +
-							"@smtp.gmail.com:465"
 					);
+				},
+				function(token, user, done) {
+					//function(token, done) {
+					var smtpTransport = nodemailer.createTransport({
+						service: "Gmail",
+						auth: {
+							user: "easyfinance.co@gmail.com",
+							pass: "karminakoala2018"
+						}
+					});
+
 					var mailOptions = {
 						to: "hfjimenez@utp.edu.co",
 						from: "EasyFinance.co <easyfinance.co@gmail.com>",
-						subject: "Node.js Password Reset",
+						subject: "EasyFinance Password Reset",
 						text:
+							"Easyfinance.co User" +
 							"You are receiving this because you (or someone else) have requested the reset of the password for your account.\n\n" +
 							"Please click on the following link, or paste this into your browser to complete the process:\n\n" +
 							"http://" +
@@ -324,7 +326,7 @@ module.exports = function(app, passport) {
 			],
 			function(err) {
 				if (err) return next(err);
-				res.redirect("/users/forgot");
+				res.redirect("/users/password_recovery"); //deberia ser la misma vista de recoverd_password, pero otra con chulos verdes.
 			}
 		);
 	});
@@ -333,7 +335,7 @@ module.exports = function(app, passport) {
 	// SECTION:PROFILE
 	// =====================================
 	app.get("/users/profile", isLoggedIn, function(req, res) {
-		res.render("./user/profile", {
+		res.render("./user/dashboard/profile", {
 			user: req.user // get the user out of session and pass to template
 		});
 	});
@@ -341,7 +343,7 @@ module.exports = function(app, passport) {
 	// SECTION:TERMS
 	// =====================================
 	app.get("/users/profile", isLoggedIn, function(req, res) {
-		res.render("./user/profile", {
+		res.render("./user/dashboard/profile", {
 			user: req.user // get the user out of session and pass to template
 		});
 	});
